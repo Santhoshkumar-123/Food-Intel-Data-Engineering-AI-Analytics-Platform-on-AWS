@@ -3,10 +3,11 @@
 # .gitignore
 # =============================================================================
 
+
 # -----------------------------------------------------------------------------
 # SECRETS — never commit these
 # -----------------------------------------------------------------------------
-.envFood-Intel - Data Engineering & AI Analytics Platform on AWSFood-Intel - Data Engineering & AI Analytics Platform on AWS
+.env 
 .env.local
 .env.*
 .env

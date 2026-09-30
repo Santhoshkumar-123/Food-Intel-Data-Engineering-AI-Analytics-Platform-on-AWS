@@ -312,7 +312,227 @@ GRANT ROLE DBT_ROLE TO USER IDENTIFIER($my_user);
 SELECT 'setup complete' AS status;
 ```
 
+## Snowflake step 2 storage integration with s3
 
+
+``` bash
+
+-- =====================================================================
+-- Phase 2 · Step 2 — Secure S3 <-> Snowflake link (Storage Integration)
+-- This is the real-world way to connect (no keys stored in Snowflake).
+--
+-- ORDER OF OPERATIONS (see RUNBOOK.md for the AWS clicks):
+--   A. In AWS IAM, create role `snowflake-zomato-role` with a PLACEHOLDER
+--      trust policy (trust your own account for now).
+--   B. Run CREATE STORAGE INTEGRATION below with that role's ARN.
+--   C. DESC INTEGRATION -> copy STORAGE_AWS_IAM_USER_ARN + EXTERNAL_ID.
+--   D. Edit the IAM role's trust policy with those two values.
+-- =====================================================================
+
+
+USE ROLE ACCOUNTADMIN;
+
+-- >>> EDIT THESE TWO <<<
+--   <ROLE_ARN> = arn:aws:iam::<your-account-id>:role/snowflake-zomato-role
+--   <BUCKET>   = your bucket, e.g. zomato-dl-yourname
+CREATE OR REPLACE STORAGE INTEGRATION ZOMATO_S3_INT
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::314944603211:role/snowflake-read-s3'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://food-intel-datalake-s3');
+
+GRANT USAGE ON INTEGRATION ZOMATO_S3_INT TO ROLE DBT_ROLE;
+
+-- Run this, then copy the two values into the IAM role trust policy (Step D).
+DESC INTEGRATION ZOMATO_S3_INT;
+--   STORAGE_AWS_IAM_USER_ARN  ->  the "AWS": principal in the trust policy
+--   STORAGE_AWS_EXTERNAL_ID   ->  the sts:ExternalId condition
+
+ 
+
+```
+
+## step 3 - File formating in snowfalke
+
+``` bash
+-- =====================================================================
+-- Phase 2 · Step 3 — External stage on S3 + CSV file format
+-- =====================================================================
+USE ROLE ACCOUNTADMIN;
+USE DATABASE ZOMATO;
+USE SCHEMA RAW;
+
+-- Plain CSV (manual upload, no gzip). Files KEEP their header row -> SKIP_HEADER = 1.
+-- Comment fields (reviews) contain commas but are quoted, so keep the quote char.
+CREATE OR REPLACE FILE FORMAT ZOMATO.RAW.CSV_FMT
+  TYPE = 'CSV'
+  COMPRESSION = 'AUTO'                       -- plain CSV (also fine if you ever switch to .gz)
+  FIELD_DELIMITER = ','
+  FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+  SKIP_HEADER = 1                            -- skip the header row your CSVs still have
+  EMPTY_FIELD_AS_NULL = TRUE
+  NULL_IF = ('', '\\N', 'NULL')
+  TRIM_SPACE = FALSE
+  ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE;   -- messy source rows (e.g. food.csv missing a
+                                            -- trailing field) NULL-fill instead of aborting
+
+-- >>> EDIT <BUCKET> <<<
+-- Upload one CSV per folder:  raw/restaurants/  raw/users/  raw/food/  raw/menu/
+--                             raw/orders/  raw/order_items/  raw/reviews/
+CREATE OR REPLACE STAGE ZOMATO.RAW.ZOMATO_RAW_STAGE
+  STORAGE_INTEGRATION = ZOMATO_S3_INT
+  URL = 's3://food-intel-datalake/raw/'
+  FILE_FORMAT = ZOMATO.RAW.CSV_FMT;
+
+-- Confirm Snowflake can see your files (should list the seven table folders).
+LIST @ZOMATO.RAW.ZOMATO_RAW_STAGE;
+
+
+```
+
+## step 4 - raw data to tables
+
+```
+bash
+
+-- =====================================================================
+-- Phase 2 · Step 4 — RAW tables (Path 1 batch, manual plain-CSV upload)
+-- Column ORDER matches the CSV files you upload, with headers skipped.
+-- NOTE: the four DIMENSION files (restaurant/users/food/menu) carry a leading
+-- unnamed index column, so their tables start with a throwaway `_idx` column.
+-- The fact files (orders/order_items/reviews) have no index column.
+-- =====================================================================
+USE ROLE ACCOUNTADMIN;
+USE DATABASE ZOMATO;
+USE SCHEMA RAW;
+
+-- restaurant.csv  (index col dropped):
+-- id,name,city,rating,rating_count,cost,cuisine,lic_no,link,address,menu
+CREATE OR REPLACE TABLE RAW.restaurants (
+  _idx          STRING,                    -- leading index column in the CSV (ignored downstream)
+  id            STRING, name        STRING, city    STRING, rating   STRING,
+  rating_count  STRING, cost        STRING, cuisine STRING, lic_no   STRING,
+  link          STRING, address     STRING, menu    STRING
+);
+
+-- users.csv: user_id,name,email,password,Age,Gender,Marital Status,
+--            Occupation,Monthly Income,Educational Qualifications,Family size
+CREATE OR REPLACE TABLE RAW.users (
+  _idx STRING,                             -- leading index column in the CSV
+  user_id STRING, name STRING, email STRING, password STRING, age STRING,
+  gender STRING, marital_status STRING, occupation STRING, monthly_income STRING,
+  education STRING, family_size STRING
+);
+
+-- food.csv: f_id,item,veg_or_non_veg
+CREATE OR REPLACE TABLE RAW.food (
+  _idx STRING,                             -- leading index column in the CSV
+  f_id STRING, item STRING, veg_or_non_veg STRING
+);
+
+-- menu.csv: ,menu_id,r_id,f_id,cuisine,price
+CREATE OR REPLACE TABLE RAW.menu (
+  _idx STRING,                             -- leading index column in the CSV
+  menu_id STRING, r_id STRING, f_id STRING, cuisine STRING, price STRING
+);
+
+-- generated/orders.csv (clean, typed):
+CREATE OR REPLACE TABLE RAW.orders (
+  order_id          NUMBER,
+  order_timestamp   TIMESTAMP_NTZ,
+  order_date        DATE,
+  user_id           NUMBER,
+  r_id              NUMBER,
+  restaurant_city   STRING,
+  cuisine           STRING,
+  items_count       NUMBER,
+  sales_qty         NUMBER,
+  subtotal          NUMBER,
+  discount          NUMBER,
+  delivery_fee      NUMBER,
+  gst               NUMBER,
+  sales_amount      NUMBER,
+  currency          STRING,
+  payment_method    STRING,
+  order_status      STRING,
+  customer_rating   NUMBER,
+  delivery_time_min NUMBER
+);
+
+-- generated/order_items.csv (clean, typed):
+CREATE OR REPLACE TABLE RAW.order_items (
+  order_item_id NUMBER,
+  order_id      NUMBER,
+  r_id          NUMBER,
+  f_id          STRING,
+  price         NUMBER,
+  quantity      NUMBER,
+  line_amount   NUMBER
+);
+
+-- generated/reviews.csv (clean, typed) — free text for the AI layer:
+CREATE OR REPLACE TABLE RAW.reviews (
+  review_id     NUMBER,
+  order_id      NUMBER,
+  user_id       NUMBER,
+  restaurant_id NUMBER,
+  rating        NUMBER,
+  comment       STRING,
+  review_date   DATE
+);
+
+```
+
+
+## Step 5 copy to sql
+
+```
+bash
+
+-- =====================================================================
+-- Phase 2 · Step 5 — Load RAW from S3 (Path 1 batch)
+-- Loads the plain CSVs you uploaded to each raw/<table>/ folder. The header
+-- row is skipped by the file format (SKIP_HEADER=1), and rows load by position.
+-- =====================================================================
+USE ROLE ACCOUNTADMIN;
+USE DATABASE ZOMATO;
+USE SCHEMA RAW;
+USE WAREHOUSE ZOMATO_WH;
+
+-- Dimensions = messy real source data -> tolerate & skip bad rows (CONTINUE).
+COPY INTO RAW.restaurants FROM @ZOMATO_RAW_STAGE/restaurants/  ON_ERROR = 'CONTINUE';
+COPY INTO RAW.users       FROM @ZOMATO_RAW_STAGE/users/        ON_ERROR = 'CONTINUE';
+COPY INTO RAW.food        FROM @ZOMATO_RAW_STAGE/food/         ON_ERROR = 'CONTINUE';
+COPY INTO RAW.menu        FROM @ZOMATO_RAW_STAGE/menu/         ON_ERROR = 'CONTINUE';
+
+-- Facts = clean generated data -> stay strict so counts are exact.
+COPY INTO RAW.orders      FROM @ZOMATO_RAW_STAGE/orders/       ON_ERROR = 'ABORT_STATEMENT';
+COPY INTO RAW.order_items FROM @ZOMATO_RAW_STAGE/order_items/  ON_ERROR = 'ABORT_STATEMENT';
+COPY INTO RAW.reviews     FROM @ZOMATO_RAW_STAGE/reviews/      ON_ERROR = 'ABORT_STATEMENT';
+
+-- Sanity check.
+SELECT 'restaurants' t, COUNT(*) n FROM RAW.restaurants
+UNION ALL SELECT 'users',       COUNT(*) FROM RAW.users
+UNION ALL SELECT 'food',        COUNT(*) FROM RAW.food
+UNION ALL SELECT 'menu',        COUNT(*) FROM RAW.menu
+UNION ALL SELECT 'orders',      COUNT(*) FROM RAW.orders
+UNION ALL SELECT 'order_items', COUNT(*) FROM RAW.order_items
+UNION ALL SELECT 'reviews',     COUNT(*) FROM RAW.reviews
+ORDER BY t;
+
+
+-- Expect: orders = 10,000,000 · order_items ≈ 23,000,000 · restaurants ≈ 148,541 ...
+
+-- ---------------------------------------------------------------------
+-- OPTIONAL — auto-ingest new files with Snowpipe (teach this on camera):
+-- CREATE PIPE RAW.orders_pipe AUTO_INGEST = TRUE AS
+--   COPY INTO RAW.orders FROM @ZOMATO_RAW_STAGE/orders/;
+-- then wire the pipe's SQS ARN to an S3 event notification.
+-- ---------------------------------------------------------------------
+
+
+```
 
 ## What This Project Builds
 
