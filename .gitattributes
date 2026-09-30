@@ -1,0 +1,17 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Force Unix LF for these file types
+*.sql text eol=lf
+*.py  text eol=lf
+*.md  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh  text eol=lf
+
+# Binary files - no line ending conversion
+*.csv binary
+*.npy binary
+*.png binary
+*.jpg binary

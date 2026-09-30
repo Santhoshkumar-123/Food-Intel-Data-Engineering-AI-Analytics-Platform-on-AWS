@@ -1,0 +1,109 @@
+# =============================================================================
+# Food-Intel Data Engineering & AI Analytics Platform
+# .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SECRETS — never commit these
+# -----------------------------------------------------------------------------
+.envFood-Intel - Data Engineering & AI Analytics Platform on AWSFood-Intel - Data Engineering & AI Analytics Platform on AWS
+.env.local
+.env.*
+.env
+.env.production
+!.env.example
+profiles.yml
+*.key
+*.pem
+secrets/
+airflow/example.env
+ai/example.env
+
+# -----------------------------------------------------------------------------
+# DATA FILES — too large for Git (~2.3 GB)
+# Get dataset from project Google Drive link in README
+# -----------------------------------------------------------------------------
+Data/
+data/
+Food Delivery Datasets/
+*.csv
+*.parquet
+*.npy
+*.json.gz
+
+# AI vector cache (regenerated locally)
+data/review_vectors.npy
+data/review_metadata.json
+
+# -----------------------------------------------------------------------------
+# dbt artifacts
+# -----------------------------------------------------------------------------
+dbt_project/target/
+dbt_project/logs/
+dbt_project/dbt_packages/
+dbt_project/.user.yml
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# -----------------------------------------------------------------------------
+# Airflow
+# -----------------------------------------------------------------------------
+airflow/logs/
+logs/
+airflow.db
+airflow.cfg
+standalone_admin_password.txt
+webserver_config.py
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+docker-compose.override.yml
+
+# -----------------------------------------------------------------------------
+# Streamlit secrets
+# -----------------------------------------------------------------------------
+.streamlit/secrets.toml
+
+# -----------------------------------------------------------------------------
+# Jupyter notebooks (exploration only, not production)
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# -----------------------------------------------------------------------------
+# IDEs & OS
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# Snowflake
+# -----------------------------------------------------------------------------
+*.snowsql
