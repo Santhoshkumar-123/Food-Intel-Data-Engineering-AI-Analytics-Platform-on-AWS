@@ -312,7 +312,7 @@ GRANT ROLE DBT_ROLE TO USER IDENTIFIER($my_user);
 SELECT 'setup complete' AS status;
 ```
 
-## Snowflake step 2 storage integration with s3
+## Snowflake Step 2 storage integration with s3
 
 
 ``` bash
@@ -353,7 +353,7 @@ DESC INTEGRATION ZOMATO_S3_INT;
 
 ```
 
-## step 3 - File formating in snowfalke
+## Step 3 - File formating in snowfalke
 
 ``` bash
 -- =====================================================================
@@ -391,7 +391,7 @@ LIST @ZOMATO.RAW.ZOMATO_RAW_STAGE;
 
 ```
 
-## step 4 - raw data to tables
+## Step 4 - raw data to tables - Buiding Schema(Column names) into the RAW
 
 ```
 bash
@@ -485,7 +485,7 @@ CREATE OR REPLACE TABLE RAW.reviews (
 ```
 
 
-## Step 5 copy to sql
+## Step 5 copy data from staging to RAW
 
 ```
 bash
@@ -533,6 +533,8 @@ ORDER BY t;
 
 
 ```
+
+
 
 ## What This Project Builds
 
