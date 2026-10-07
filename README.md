@@ -535,10 +535,59 @@ ORDER BY t;
 ```
 
 
+### Step 6 — Set up dbt
 
-## What This Project Builds
+```bash
+cd dbt_project - curent project folder
+pip install dbt-snowflake
+cp profiles.yml.example ~/.dbt/profiles.yml
+# Edit ~/.dbt/profiles.yml with your Snowflake credentials
 
-An end-to-end batch data pipeline that takes 7 raw CSV files through a full modern data stack:
+# Test connection
+dbt debug
+
+# Run all models
+dbt build
+```
+
+### Step 7 Run dbt commonds
+
+``` 
+bash
+
+cd <dbt project>
+dbt run --select staging 
+dbt run --select 
+dbt run --full-refresh --select staging marts 
+dbt test
+dbt run
+
+```
+## Step 8 orchestrate using Airflow
+Create docker image
+```
+docker-compose bulid 
+
+```
+
+```
+docker-compose up
+
+```
+
+It spins up a complete Airflow 3.x environment locally so you can orchestrate your data pipeline — dbt transformations on Snowflake + AI-powered review enrichment — without installing Airflow directly on your machine.
+
+AirFlow Server is running on http://localhost:8081
+
+
+
+
+
+
+
+
+
+
 
 ```
 Food-Delivery CSVs → Amazon S3 → Snowflake (Bronze→Silver→Gold) → dbt → Airflow → AI Layer → Streamlit
@@ -710,20 +759,7 @@ aws s3 sync Data/ s3://food-intel-datalake/raw/
 
 ---
 
-### Step 5 — Set up dbt
 
-```bash
-cd dbt_project
-pip install dbt-snowflake
-cp profiles.yml.example ~/.dbt/profiles.yml
-# Edit ~/.dbt/profiles.yml with your Snowflake credentials
-
-# Test connection
-dbt debug
-
-# Run all models
-dbt build
-```
 
 ---
 
