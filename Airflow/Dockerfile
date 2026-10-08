@@ -6,7 +6,8 @@ FROM apache/airflow:3.0.3
 RUN pip install --no-cache-dir \
       apache-airflow-providers-snowflake \
       apache-airflow-providers-fab \
-      openai
+      openai \
+      groq
 
 # dbt in its own venv so it never clashes with Airflow's deps. DAG calls /opt/airflow/dbt_venv/bin/dbt
 RUN python -m venv /opt/airflow/dbt_venv && \

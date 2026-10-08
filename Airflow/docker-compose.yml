@@ -21,6 +21,7 @@ x-airflow-common: &airflow-common
     SNOWFLAKE_USER: ${SNOWFLAKE_USER}
     SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
     OPENAI_API_KEY: ${OPENAI_API_KEY}
+    GROQ_API_KEY: ${GROQ_API_KEY}
     SAMPLE_N: ${SAMPLE_N:-5}
     AIRFLOW_CONN_SNOWFLAKE_DEFAULT: '{"conn_type":"snowflake","login":"${SNOWFLAKE_USER}","password":"${SNOWFLAKE_PASSWORD}","schema":"RAW","extra":{"account":"${SNOWFLAKE_ACCOUNT}","warehouse":"ZOMATO_WH","database":"ZOMATO","role":"DBT_ROLE"}}'
   volumes:

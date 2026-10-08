@@ -579,6 +579,13 @@ It spins up a complete Airflow 3.x environment locally so you can orchestrate yo
 
 AirFlow Server is running on http://localhost:8081
 
+## Step 9: Implemented AI layer on top of Data pipeline
+
+```
+enrich_reviews.py
+```
+
+
 
 
 
